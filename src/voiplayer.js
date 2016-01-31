@@ -26,12 +26,19 @@
             },
             volume: {
                 type : 'vertical', // or horizontal
+            },
+            lyrics : {
+                kara : false,
+                type : 1
             }
         }
         var _options = {};
         var _e = document.createElement('audio');
         var _controls = [];
         var _playlist;
+
+        // Timers
+        var _timer_lyrics;
 
         function init(options){
             function mergeConfig(a, b){
@@ -85,18 +92,29 @@
         }
 
         function ontimeupdate(){
-            setValue(_controls.time_current,
-                getTime(_controls.time_current.reverse ? _e.duration - _e.currentTime : _e.currentTime
-            ));
+            if(typeof _controls.time_current !== 'undefined'){
+                setValue(_controls.time_current,
+                    getTime(_controls.time_current.reverse ? _e.duration - _e.currentTime : _e.currentTime
+                ));
+            }
+            _playlist.updateLyrics();
             updateProcess(_e.currentTime * 1000 / _e.duration);
         }
 
         function onplay(){
             log('onplay');
+            if(typeof _controls.playpause !== 'undefined')
+                _controls.playpause.addClass('playing');
+            if(_options.lyrics.kara)
+                _timer_lyrics = setInterval(_playlist.updateOverlay, 100);
         }
 
         function onpause(){
             log('onpause');
+            if(typeof _controls.playpause !== 'undefined')
+                _controls.playpause.removeClass('playing');
+            clearInterval(_timer_lyrics);
+            _timer_lyrics = undefined;
         }
 
         function onended(){
@@ -146,7 +164,7 @@
                     return;
                 }
                 for (var i = 0; i < songs.length; i++) {
-                    if(s.url === songs[i]){
+                    if(s.url === songs[i].url){
                         log('The song already exists in the list');
                         return;
                     }
@@ -233,19 +251,30 @@
             }
 
             this.getNextSong = function(){
-                if(songs.length <= 0) return;
+                if(songs.length == 0) return;
                 var i = (index + 1) % songs.length;
                 return songs[i];
             }
 
             this.getPrevSong = function() {
-                if(songs.length <= 0) return;
+                if(songs.length == 0) return;
                 var i = (songs.length + index - 1) % songs.length;
                 return songs[i];
             }
 
             this.getCurrentSong = function(){
-                return _e.song;
+                if(songs.length == 0 || index < 0 || index > songs.length - 1) return;
+                return songs[index];
+            }
+
+            this.updateLyrics = function(){
+                if(songs.length == 0 || index < 0 || index > songs.length - 1) return;
+                songs[index].lyrics.update();
+            }
+
+            this.updateOverlay = function(){
+                if(songs.length == 0 || index < 0 || index > songs.length - 1 || !_options.lyrics.kara) return;
+                songs[index].lyrics.updateOverlay();
             }
 
             this.setProcess = function(t){
@@ -273,6 +302,7 @@
             }
 
             function Invalidate(){
+                if(typeof _controls.playlist === 'undefined') return;
                 _controls.playlist.empty();
                 for (var i = songs.length - 1; i >= 0; i--) {
                     _controls.playlist.prepend(songs[i]._el);
@@ -308,7 +338,10 @@
                     _e.src = this.url;
                 _e.play();
 
-                setValue(_controls.title, this.title + ' - ' + this.artist);
+                setValue(_controls.title, this.title);
+                setValue(_controls.artist, this.artist);
+
+                this.lyrics.load();
             }
 
             this.pause = function(){
@@ -338,16 +371,101 @@
             this.remove = function(){
                 if(_e.currentSrc == this.url)
                     _e.src = '';
-                //$(_el).parents().remove(_el);
             }
         }
 
         function Lyrics(s){
-            function init(s){
+            var url, data = [], isloading = false, current, next, index;
+            if(s[0] == '[')
+                data = getLyricsData(s);
+            else url = s;
 
+            this.load = function(){
+                if(data.length > 0 || isloading || url.length == 0) return;
+                isloading = true;
+                $.get(url, function(r) {
+                    data = getLyricsData(r);
+                });
             }
 
-            init(s);
+            this.update = function(){
+                if(data.length == 0) {
+                    setValue(_controls.lyrics, '');
+                    return;
+                }
+                var currentTime = _e.currentTime;
+                var text = data[0][1];
+                var i = 0;
+                for (i = 0; i < data.length; i++) {
+                    if(data[i][0] < currentTime)
+                        text = data[i][1];
+                    else break;
+                }
+                if(current != text){
+                    current = text;
+                    if(i < data.length - 1)
+                        next = data[i][1];
+                    if(current.length !== 0 && current != '\r')
+                    {
+                        showCurrent(current)
+                        index = i;
+                    }
+                    else
+                        showCurrent(next);
+                }
+            }
+
+            this.updateOverlay = function(){
+                if(index == undefined || _controls.lyrics.overlay == undefined || index < 0) return;
+                var w = (_e.currentTime - data[index - 1][0]) / (data[index][0] - data[index - 1][0]) * 100;
+                if(w > 100) w = 0;
+                _controls.lyrics.overlay.width( w + '%');
+            }
+
+            function showCurrent(s){
+                if(typeof _controls.lyrics === 'undefined') return;
+                setValue(_controls.lyrics.panel, s)
+                if(_options.lyrics.kara){
+                    setValue(_controls.lyrics.overlay, s);
+                    _controls.lyrics.overlay.width('0%');
+                    if(typeof _controls.lyrics !== 'undefined')
+                        _controls.lyrics.panel.append(_controls.lyrics.overlay);
+                }
+
+                setValue(_controls.lyrics, _controls.lyrics.panel);
+            }
+
+            function getLyricsData (text) {
+                log('get lyrics data...');
+                var lines = text.split('\n'),
+                //this regex mathes the time [00.12.78]
+                pattern = /\[\d{2}:\d{2}.\d{2}\]/g,
+                result = [];
+                //exclude the description parts or empty parts of the lyric
+                while (!pattern.test(lines[0])) {
+                    lines = lines.slice(1);
+                };
+                //remove the last empty item
+                lines[lines.length - 1].length === 0 && lines.pop();
+                //display all content on the page
+                lines.forEach(function(v, i, a) {
+                    var time = v.match(pattern),
+                    value = v.replace(pattern, '');
+                    if(time){
+                        time.forEach(function(v1, i1, a1) {
+                            //convert the [min:sec] to secs format then store into result
+                            var t = v1.slice(1, - 1).split(':');
+                            result.push([parseInt(t[0], 10) * 60 + parseFloat(t[1]), value]);
+                        });
+                    }
+                });
+                //sort the result by time
+                result.sort(function(a, b) {
+                    return a[0] - b[0];
+                });
+                isloading = false;
+                return result;
+            }
         }
 
         // Interfaces
@@ -369,21 +487,22 @@
 
         this.volumeUp = function(t){
             t = (typeof t == 'number') ? t : 1;
-
+            this.setVolume(Math.round(_e.volume *100)+ t);
         }
 
         this.volumeDown = function(t){
             t = (typeof t == 'number') ? t : 1;
-
+            this.setVolume(Math.round(_e.volume*100) - t);
         }
 
         this.setVolume = function(t) {
-            t = (typeof t == 'number') ? t : 1;
-
+            log('setVolume: ' + t);
+            if(t<0 || t > 100) return;
+            _e.volume = parseFloat(Math.round(t)/100).toFixed(2);
         }
 
         this.getVolume = function(){
-
+            return Math.round(_e.volume*100);
         }
 
         this.next = function(){
@@ -421,7 +540,8 @@
         }
 
         function log(s){
-            if(_options.debug === true) console.log(s);
+            if(_options.debug === true && typeof console === 'object' && typeof console.log === "function")
+                console.log(s);
         }
 
         function getTime (t) {
@@ -435,7 +555,7 @@
         }
         function setValue(_control, v){
             if(typeof _control == 'undefined') return;
-            _control.html(v);
+            return _control.html(v);
         }
         function setProcessStyle(_control){
             if(typeof _control == 'undefined') return;
@@ -465,6 +585,11 @@
         function updateProcess(t){
             _controls.process.slider('value', t);
         }
+        function setLyricsstyle(_control){
+            if(typeof _control == 'undefined') return;
+            _control.panel = $('<p class="lyric-panel" style="position: relative; display: inline-block; white-space: nowrap"></p>');
+            _control.overlay = $('<span class="overlay" style="color: #4F00FF; position: absolute; left: 0; top: 0; width: 60%; overflow: hidden"></span>');
+        }
 
         init(options);
         setEvent(_controls.playpause, 'click', _playlist.toggle);
@@ -476,6 +601,7 @@
             ontimeupdate();
         });
         setProcessStyle(_controls.process);
+        setLyricsstyle(_controls.lyrics);
     }
     window.VoiPlayer = VoiPlayer;
 })();

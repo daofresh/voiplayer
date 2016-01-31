@@ -4,6 +4,7 @@
     <title>Full controls - VoiPlayerJS</title>
 </head>
 <body>
+    <div id="lyrics"></div>
     <input type="button" name="" value="<<" id="prev">
     <input type="button" name="" value="Play" id="playpause">
     <input type="button" name="" value="[Stop]" id="stop">
@@ -25,9 +26,12 @@
         maps : {
             title : '.title',
             playlist : '.playlist'
+        },
+        lyrics : {
+            kara : true
         }
     });
-    $.getJSON('../json/song2.json', function(json, textStatus) {
+    $.getJSON('../json/list.json', function(json, textStatus) {
             _voiplayer.addSong(json);
     });
     </script>
