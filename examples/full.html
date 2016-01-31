@@ -9,7 +9,7 @@
     <input type="button" name="" value="[Stop]" id="stop">
     <input type="button" name="" value=">>" id="next">
 
-    <p><span class="title"></span></p>
+    <p><span class="title"></span> - <span id="artist"></span></p>
     <p><span id='time-current'></span> / <span id='time-total'></span></p>
     <div id="process"></div>
     <hr>
@@ -27,7 +27,7 @@
             playlist : '.playlist'
         }
     });
-    $.getJSON('../json/list.json', function(json, textStatus) {
+    $.getJSON('../json/song2.json', function(json, textStatus) {
             _voiplayer.addSong(json);
     });
     </script>
