@@ -88,6 +88,7 @@
             setValue(_controls.time_current,
                 getTime(_controls.time_current.reverse ? _e.duration - _e.currentTime : _e.currentTime
             ));
+            updateProcess(_e.currentTime * 1000 / _e.duration);
         }
 
         function onplay(){
@@ -133,7 +134,7 @@
                 {
                     if(typeof songs[index] === 'object' && songs[index].constructor.name === "Song")
                         return true;
-                    else
+                    else // remove song if it not valid
                         songs.splice(index, 1);
                 }
                 return false;
@@ -155,7 +156,6 @@
             }
 
             function remove(i){
-                log('remove song ' + i);
                 if(typeof i !== 'number' || i < 0 || i >= songs.length) return;
                 if(i == index){
                     songs[index].remove();
@@ -173,6 +173,17 @@
                 if(isValidSong(songs[index]))
                     songs[index].play();
                 else log('invalid song type');
+            }
+
+            this.playSong = function(s){
+                if(typeof s === 'object' && s.constructor.name === "Song"){
+                    for (var i = 0; i < songs.length; i++) {
+                        if(songs[i] == s){
+                            index = i;
+                            songs[index].play();
+                        }
+                    }
+                } else log('invalid song type: ' + typeof s);
             }
 
             this.pause = function(){
@@ -237,6 +248,12 @@
                 return _e.song;
             }
 
+            this.setProcess = function(t){
+                if(isValidSong(songs[index]))
+                    songs[index].setProcess(t);
+                else log('invalid song type');
+            }
+
             this.remove = function(s){
                 log('start remove song ' + s);
                 if(typeof s === 'number'){
@@ -271,7 +288,20 @@
             this.cover = o.cover;
             this.lyrics = new Lyrics(o.lyrics);
             this._el = document.createElement('li');
-            this._el.innerHTML = '<span class="title">'+this.title+'</span> - <span class="artist">'+this.artist+'</span>';
+            this._el.song = this;
+            this._el.innerHTML = '<span class="title">'+this.title+'</span> - <span class="artist"> '+this.artist+'</span><span class="del">Del</span>';
+            this._el.addEventListener('click', function(e){
+                e.stopPropagation();
+                if(e.target.tagName.toLowerCase() === 'span')
+                {
+                    if((e.target.classList && e.target.classList.contains('del'))
+                        || new RegExp('(^| )' + 'del' + '( |$)', 'gi').test(e.target.className)){
+                        _playlist.remove(this.song);
+                        return;
+                    }
+                }
+                _playlist.playSong(this.song);
+            });
 
             this.play = function(){
                 if(_e.currentSrc != this.url)
@@ -297,6 +327,12 @@
                     _e.pause();
                     _e.currentTime = 0;
                 }
+            }
+
+            this.setProcess = function(t){
+                if(t < 0 || t > 1000 || _e.ended || isNaN(_e.duration)) return false;
+                _e.currentTime = _e.duration / 1000 * t;
+                if(_e.paused) play()
             }
 
             this.remove = function(){
@@ -401,6 +437,34 @@
             if(typeof _control == 'undefined') return;
             _control.html(v);
         }
+        function setProcessStyle(_control){
+            if(typeof _control == 'undefined') return;
+            _control.slider({
+                animate: 500,
+                max : 1000,
+                range: "min",
+                slide : function(e, t) {
+                    if(isNaN(_e.duration)) {
+                        e.preventDefault();
+                        return;
+                    }
+                    _playlist.setProcess(t.value);
+                }
+            });
+            _control.css({
+                position: 'relative',
+                border: '1px solid #E4E0E0',
+                height: '20px',
+                'box-sizing': 'border-box'
+            });
+            _control.find('.ui-slider-range').css({
+                height: '18px',
+                'background-color': '#9E9E9E'
+            });
+        }
+        function updateProcess(t){
+            _controls.process.slider('value', t);
+        }
 
         init(options);
         setEvent(_controls.playpause, 'click', _playlist.toggle);
@@ -411,6 +475,7 @@
             _controls.time_current.reverse = !_controls.time_current.reverse;
             ontimeupdate();
         });
+        setProcessStyle(_controls.process);
     }
     window.VoiPlayer = VoiPlayer;
 })();
