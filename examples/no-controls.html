@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>No controls - VoiPlayerJS</title>
+</head>
+<body>
+<script type="text/javascript" src="../libs/jquery.js"></script>
+<script type="text/javascript" src="../src/voiplayer.js"></script>
+<script type="text/javascript">
+    var _voiplayer = new VoiPlayer({debug : true});
+    $.getJSON('../json/song2.json', function(json, textStatus) {
+            _voiplayer.addSong(json);
+            _voiplayer.play();
+    });
+</script>
+</body>
+</html>
