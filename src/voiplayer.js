@@ -583,7 +583,8 @@
             });
         }
         function updateProcess(t){
-            _controls.process.slider('value', t);
+            if(typeof jQuery.fn.slider === 'function')
+                _controls.process.slider('value', t);
         }
         function setLyricsstyle(_control){
             if(typeof _control == 'undefined') return;
