@@ -28,6 +28,7 @@
                 type : 'vertical', // or horizontal
             },
             lyrics : {
+                color : '#4F00FF',
                 kara : false,
                 type : 1
             }
@@ -229,6 +230,7 @@
             }
 
             this.prev = function(){
+                if(songs.length <= 0) return;
                 index = (songs.length + index - 1) % songs.length;
                 songs[index].play();
             }
@@ -369,8 +371,12 @@
             }
 
             this.remove = function(){
-                if(_e.currentSrc == this.url)
+                if(_e.currentSrc == this.url){
+                    onpause();
                     _e.src = '';
+                    setValue(_controls.title, '');
+                    setValue(_controls.artist, '');
+                }
             }
         }
 
@@ -416,7 +422,7 @@
             }
 
             this.updateOverlay = function(){
-                if(index == undefined || _controls.lyrics.overlay == undefined || index < 0) return;
+                if(index == undefined || _controls.lyrics.overlay == undefined || index <= 0) return;
                 var w = (_e.currentTime - data[index - 1][0]) / (data[index][0] - data[index - 1][0]) * 100;
                 if(w > 100) w = 0;
                 _controls.lyrics.overlay.width( w + '%');
@@ -589,7 +595,7 @@
         function setLyricsstyle(_control){
             if(typeof _control == 'undefined') return;
             _control.panel = $('<p class="lyric-panel" style="position: relative; display: inline-block; white-space: nowrap"></p>');
-            _control.overlay = $('<span class="overlay" style="color: #4F00FF; position: absolute; left: 0; top: 0; width: 60%; overflow: hidden"></span>');
+            _control.overlay = $('<span class="overlay" style="color: '+_options.lyrics.color+'; position: absolute; left: 0; top: 0; width: 60%; overflow: hidden"></span>');
         }
 
         init(options);
