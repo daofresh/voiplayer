@@ -71,6 +71,10 @@
             _options = mergeConfig(_default_config, options);
             _controls = getElements(_options.maps);
 
+            // Validate options
+            if(["vertical", "horizontal"].indexOf(_options.volume.type) == -1)
+                 _options.volume.type = "vertical";
+
             // Setup audio events
             _e.ondurationchange = ondurationchange;
             _e.ontimeupdate = ontimeupdate;
@@ -501,7 +505,7 @@
             this.setVolume(Math.round(_e.volume*100) - t);
         }
 
-        this.setVolume = function(t) {
+        var setVolume = this.setVolume = function(t) {
             log('setVolume: ' + t);
             if(t<0 || t > 100) return;
             _e.volume = parseFloat(Math.round(t)/100).toFixed(2);
@@ -592,6 +596,31 @@
             if(typeof jQuery.fn.slider === 'function')
                 _controls.process.slider('value', t);
         }
+        function setVolumeStyle(_control){
+            if(typeof _control == 'undefined') return;
+            _control.slider({
+                orientation: _options.volume.type,
+                animate: 500,
+                range: "min",
+                min: 0,
+                max: 100,
+                slide : function(e, t) {
+                    setVolume(t.value);
+                }
+            });
+            _control.css({
+                'position':'relative',
+                height: '100px',
+                width: '20px',
+                border: '1px solid #E4E0E0'
+            });
+            _control.find('.ui-slider-range-min').css({
+                'position':'absolute',
+                'width':'100%',
+                'bottom' : 0,
+                'background-color':'#9E9E9E'
+            });
+        }
         function setLyricsstyle(_control){
             if(typeof _control == 'undefined') return;
             _control.panel = $('<p class="lyric-panel" style="position: relative; display: inline-block; white-space: nowrap"></p>');
@@ -608,6 +637,7 @@
             ontimeupdate();
         });
         setProcessStyle(_controls.process);
+        setVolumeStyle(_controls.volume);
         setLyricsstyle(_controls.lyrics);
     }
     window.VoiPlayer = VoiPlayer;
